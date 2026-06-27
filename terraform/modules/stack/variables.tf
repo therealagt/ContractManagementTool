@@ -85,6 +85,17 @@ variable "api_image" {
   default     = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
+variable "extraction_worker_image" {
+  type        = string
+  description = "Container image for extraction worker"
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "gemini_model" {
+  type    = string
+  default = "gemini-2.0-flash"
+}
+
 variable "allowed_email_domains" {
   type        = list(string)
   description = "Allowed Google account email domains for IAP-authenticated API access"

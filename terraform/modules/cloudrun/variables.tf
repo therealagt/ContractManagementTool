@@ -81,3 +81,24 @@ variable "auth_admin_emails" {
   type    = list(string)
   default = []
 }
+
+variable "extraction_worker_image" {
+  type        = string
+  description = "Container image for extraction worker"
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "ingestion_service_account_email" {
+  type    = string
+  default = ""
+}
+
+variable "push_invoker_member" {
+  type    = string
+  default = ""
+}
+
+variable "gemini_model" {
+  type    = string
+  default = "gemini-2.0-flash"
+}

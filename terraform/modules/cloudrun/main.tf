@@ -109,6 +109,11 @@ resource "google_cloud_run_v2_service" "api" {
         value = join(",", var.auth_admin_emails)
       }
 
+      env {
+        name  = "PUBSUB_EXTRACTION_TOPIC"
+        value = "contract-extraction-${var.environment}"
+      }
+
       resources {
         limits = {
           cpu    = "1"

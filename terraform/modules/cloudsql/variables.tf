@@ -22,6 +22,11 @@ variable "api_service_account_email" {
   type = string
 }
 
+variable "ingestion_service_account_email" {
+  type    = string
+  default = ""
+}
+
 variable "db_tier" {
   type    = string
   default = "db-f1-micro"

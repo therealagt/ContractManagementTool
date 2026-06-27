@@ -74,3 +74,10 @@ resource "google_secret_manager_secret_iam_member" "api_db_password" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.api_service_account_email}"
 }
+
+resource "google_secret_manager_secret_iam_member" "ingestion_db_password" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.db_password.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.ingestion_service_account_email}"
+}

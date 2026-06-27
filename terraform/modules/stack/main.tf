@@ -19,6 +19,7 @@ locals {
     "logging.googleapis.com",
     "accesscontextmanager.googleapis.com",
     "orgpolicy.googleapis.com",
+    "pubsub.googleapis.com",
   ]
 }
 
@@ -89,14 +90,15 @@ module "storage" {
 module "cloudsql" {
   source = "../cloudsql"
 
-  project_id                = var.project_id
-  region                    = var.region
-  environment               = var.environment
-  network_id                = module.networking.network_id
-  kms_key_id                = module.compliance.kms_key_id
-  api_service_account_email = module.iam.service_account_emails["api"]
-  db_tier                   = var.db_tier
-  deletion_protection       = var.environment == "prod"
+  project_id                    = var.project_id
+  region                        = var.region
+  environment                   = var.environment
+  network_id                    = module.networking.network_id
+  kms_key_id                    = module.compliance.kms_key_id
+  api_service_account_email     = module.iam.service_account_emails["api"]
+  ingestion_service_account_email = module.iam.service_account_emails["ingestion"]
+  db_tier                       = var.db_tier
+  deletion_protection           = var.environment == "prod"
 
   depends_on = [module.networking, module.compliance, module.iam]
 }
@@ -125,27 +127,49 @@ module "artifactregistry" {
 module "cloudrun" {
   source = "../cloudrun"
 
-  project_id                  = var.project_id
-  region                      = var.region
-  environment                 = var.environment
-  api_service_account_email   = module.iam.service_account_emails["api"]
-  vpc_connector_id            = module.networking.vpc_connector_id
-  api_image                   = var.api_image
-  cloud_sql_connection_name   = module.cloudsql.instance_connection_name
-  db_name                     = module.cloudsql.database_name
-  db_user                     = module.cloudsql.database_user
-  db_password_secret_id       = module.cloudsql.db_password_secret_id
-  staging_bucket_name         = module.storage.staging_bucket_name
-  archive_bucket_name         = module.storage.archive_bucket_name
-  iap_audience                = var.enable_iap ? var.iap_oauth_client_id : ""
-  iap_jwt_validation_disabled = !var.enable_iap
-  allowed_email_domains       = var.allowed_email_domains
-  auth_uploader_emails        = var.auth_uploader_emails
-  auth_reviewer_emails        = var.auth_reviewer_emails
-  auth_auditor_emails         = var.auth_auditor_emails
-  auth_admin_emails           = var.auth_admin_emails
+  project_id                      = var.project_id
+  region                          = var.region
+  environment                     = var.environment
+  api_service_account_email       = module.iam.service_account_emails["api"]
+  ingestion_service_account_email = module.iam.service_account_emails["ingestion"]
+  vpc_connector_id                = module.networking.vpc_connector_id
+  api_image                       = var.api_image
+  extraction_worker_image         = var.extraction_worker_image
+  gemini_model                    = var.gemini_model
+  cloud_sql_connection_name       = module.cloudsql.instance_connection_name
+  db_name                         = module.cloudsql.database_name
+  db_user                         = module.cloudsql.database_user
+  db_password_secret_id           = module.cloudsql.db_password_secret_id
+  staging_bucket_name             = module.storage.staging_bucket_name
+  archive_bucket_name             = module.storage.archive_bucket_name
+  iap_audience                    = var.enable_iap ? var.iap_oauth_client_id : ""
+  iap_jwt_validation_disabled     = !var.enable_iap
+  allowed_email_domains           = var.allowed_email_domains
+  auth_uploader_emails            = var.auth_uploader_emails
+  auth_reviewer_emails            = var.auth_reviewer_emails
+  auth_auditor_emails             = var.auth_auditor_emails
+  auth_admin_emails               = var.auth_admin_emails
+  push_invoker_member             = "serviceAccount:sa-pubsub-push-${var.environment}@${var.project_id}.iam.gserviceaccount.com"
 
   depends_on = [module.cloudsql, module.storage, module.networking, module.iam]
+}
+
+module "pubsub" {
+  source = "../pubsub"
+
+  project_id            = var.project_id
+  region                = var.region
+  environment           = var.environment
+  extraction_worker_uri = module.cloudrun.extraction_service_uri
+
+  depends_on = [module.cloudrun]
+}
+
+resource "google_pubsub_topic_iam_member" "api_extraction_publisher" {
+  project = var.project_id
+  topic   = module.pubsub.extraction_topic_id
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${module.iam.service_account_emails["api"]}"
 }
 
 module "iap" {

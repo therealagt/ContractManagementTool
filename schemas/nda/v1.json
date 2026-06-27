@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NDA Extraction Schema",
+  "version": "1",
+  "type": "object",
+  "required": [
+    "disclosing_party",
+    "receiving_party",
+    "effective_date",
+    "confidentiality_term_months",
+    "governing_law"
+  ],
+  "properties": {
+    "disclosing_party": {
+      "type": "string",
+      "description": "Legal name of the disclosing party"
+    },
+    "receiving_party": {
+      "type": "string",
+      "description": "Legal name of the receiving party"
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Contract effective date (ISO 8601)"
+    },
+    "term_months": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Overall agreement term in months"
+    },
+    "confidentiality_term_months": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Confidentiality obligation duration in months"
+    },
+    "governing_law": {
+      "type": "string",
+      "description": "Applicable jurisdiction / governing law"
+    },
+    "mutual": {
+      "type": "boolean",
+      "description": "Whether the NDA is mutual"
+    }
+  },
+  "additionalProperties": false
+}

@@ -6,10 +6,7 @@
 *.tfstate.*
 *.tfvars
 .env
-.venv
-venv
 local.db
-**/__pycache__
-**/*.pyc
+.local-gcs/
 bin/
 *.test

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AVV Extraction Schema",
+  "version": "1",
+  "type": "object",
+  "required": [
+    "controller",
+    "processor",
+    "processing_purpose",
+    "subprocessors_allowed",
+    "deletion_period_days"
+  ],
+  "properties": {
+    "controller": {
+      "type": "string",
+      "description": "Data controller (Verantwortlicher)"
+    },
+    "processor": {
+      "type": "string",
+      "description": "Data processor (Auftragsverarbeiter)"
+    },
+    "processing_purpose": {
+      "type": "string",
+      "description": "Purpose of processing"
+    },
+    "data_categories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Categories of personal data processed"
+    },
+    "subprocessors_allowed": {
+      "type": "boolean",
+      "description": "Whether subprocessors are permitted"
+    },
+    "deletion_period_days": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Data deletion period after contract end (days)"
+    },
+    "eu_processing_only": {
+      "type": "boolean",
+      "description": "Processing restricted to EU/EEA"
+    }
+  },
+  "additionalProperties": false
+}

@@ -32,3 +32,7 @@ output "bigquery_dataset" {
 output "api_service_account" {
   value = module.iam.service_account_emails["api"]
 }
+
+output "extraction_topic" {
+  value = module.pubsub.extraction_topic
+}

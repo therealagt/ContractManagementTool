@@ -48,11 +48,10 @@ bin/
 *.exe
 *.test
 local.db
+.local-gcs/
 
-# Local env / legacy Python venv
+# Local env
 .env
-.venv/
-venv/
 
 # Docker
 *.log

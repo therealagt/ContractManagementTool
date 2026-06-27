@@ -13,10 +13,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/therealagt/ContractManagementTool/libs/common/gcs"
+	"github.com/therealagt/ContractManagementTool/libs/common/pubsub"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/auth"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/config"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/db"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/routes"
+	"github.com/therealagt/ContractManagementTool/services/api/internal/services"
 )
 
 func main() {
@@ -36,6 +39,13 @@ func main() {
 		log.Fatalf("migrations: %v", err)
 	}
 
+	staging, stagingCleanup := mustStaging(ctx, settings)
+	defer stagingCleanup()
+
+	publisher, publisherCleanup := mustPublisher(ctx, settings)
+	defer publisherCleanup()
+
+	uploads := services.NewUploadService(database, staging, publisher)
 	validator := auth.NewIAPValidator(settings)
 	accessLogger := newAccessLoggerFactory(database)
 
@@ -44,6 +54,7 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	routes.Mount(r, settings, validator, accessLogger)
+	routes.MountContracts(r, settings, validator, uploads, accessLogger)
 
 	addr := envOr("PORT", "8080")
 	server := &http.Server{
@@ -68,6 +79,34 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
+}
+
+func mustStaging(ctx context.Context, settings *config.Settings) (services.StagingStorage, func()) {
+	if settings.GCSStagingBucket != "" && settings.GCPProjectID != "" {
+		client, err := gcs.NewClient(ctx, settings.GCSStagingBucket)
+		if err != nil {
+			log.Fatalf("gcs: %v", err)
+		}
+		return client, func() { _ = client.Close() }
+	}
+	local, err := gcs.NewLocalClient(".local-gcs", "local-staging")
+	if err != nil {
+		log.Fatalf("local staging: %v", err)
+	}
+	log.Printf("using local staging (set GCS_STAGING_BUCKET for GCP)")
+	return local, func() {}
+}
+
+func mustPublisher(ctx context.Context, settings *config.Settings) (services.ExtractionPublisher, func()) {
+	if settings.PubSubExtractionTopic == "" || settings.GCPProjectID == "" {
+		log.Printf("pubsub publisher disabled (set PUBSUB_EXTRACTION_TOPIC for extraction pipeline)")
+		return nil, func() {}
+	}
+	p, err := pubsub.NewPublisher(ctx, settings.GCPProjectID, settings.PubSubExtractionTopic)
+	if err != nil {
+		log.Fatalf("pubsub: %v", err)
+	}
+	return p, func() { _ = p.Close() }
 }
 
 func newAccessLoggerFactory(database *sql.DB) func(*http.Request) *auth.AccessLogger {
