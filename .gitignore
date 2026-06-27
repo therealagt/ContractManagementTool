@@ -43,16 +43,16 @@ terraform.rc
 # Uncomment the line below if you want to ignore planout files.
 # planout
 
-# Python
-__pycache__/
-*.py[cod]
+# Go
+bin/
+*.exe
+*.test
+local.db
+
+# Local env / legacy Python venv
+.env
 .venv/
 venv/
-.env
-*.db
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
 
 # Docker
 *.log

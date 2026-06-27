@@ -1,0 +1,15 @@
+.git
+.cursor
+.terraform
+**/.terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.env
+.venv
+venv
+local.db
+**/__pycache__
+**/*.pyc
+bin/
+*.test

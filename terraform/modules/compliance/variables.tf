@@ -50,3 +50,9 @@ variable "vpc_sc_ingress_identities" {
   default     = []
   description = "Service account identities allowed to ingress the VPC SC perimeter"
 }
+
+variable "api_service_account_email" {
+  type        = string
+  default     = ""
+  description = "API workload SA granted KMS use (CMEK client-side access if needed)"
+}

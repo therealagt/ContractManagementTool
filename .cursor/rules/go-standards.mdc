@@ -1,0 +1,84 @@
+---
+description: Go language standards for Contract Management Tool services
+alwaysApply: true
+---
+
+# Go Standards
+
+All application code in this repository is **Go only**. Do not add Python, FastAPI, or pip/requirements.txt.
+
+## Layout
+
+```
+go.mod                 # root module: github.com/therealagt/ContractManagementTool
+services/api/cmd/      # service entrypoints (main packages)
+services/api/internal/ # API-private packages (config, auth, db, routes)
+services/*-worker/     # future workers: same cmd/ + internal/ pattern
+libs/common/           # shared packages importable across services
+```
+
+- **No Python**: Remove or rewrite any `.py` files; never introduce new ones.
+- **One module**: Single root `go.mod`. Services are packages under `services/`, not separate modules.
+- **internal/**: HTTP handlers, middleware, and service wiring stay in `services/<name>/internal/`.
+- **libs/common/**: Cross-service domain logic (audit, shared types) only — no HTTP or service wiring.
+
+## Dependencies
+
+- Prefer stdlib (`net/http`, `database/sql`, `context`, `encoding/json`).
+- Routing: `github.com/go-chi/chi/v5`.
+- PostgreSQL: `github.com/jackc/pgx/v5` (stdlib driver).
+- Local dev DB: `modernc.org/sqlite` (no CGO).
+- GCP IAP JWT: `google.golang.org/api/idtoken`.
+- Pin versions in `go.mod`; run `go mod tidy` after changes.
+
+## Style
+
+- Small packages with clear names (`auth`, `config`, `db`, `audit`).
+- Explicit error returns; wrap with `%w` when propagating.
+- Fail closed on auth, validation, and signature checks — return proper HTTP status, never swallow errors.
+- Config from environment variables (same names as Terraform/Cloud Run: `ENVIRONMENT`, `IAP_AUDIENCE`, etc.).
+- Comments only for non-obvious compliance or regulatory intent.
+
+## Patterns
+
+```go
+// BAD — silent failure on compliance gate
+func upload(w http.ResponseWriter, r *http.Request) {
+    result, _ := validatePAdES(pdf)
+    if result == nil {
+        save(pdf)
+    }
+}
+
+// GOOD — fail closed, auditable
+result, err := validatePAdES(pdf)
+if err != nil || !result.Valid {
+    _ = audit.RecordAuditEvent(ctx, db, actor, "upload_rejected", &contractID, map[string]any{
+        "reason": result.Error,
+    }, nil)
+    http.Error(w, "Invalid digital signature", http.StatusUnprocessableEntity)
+    return
+}
+```
+
+```go
+// BAD — AI output treated as truth
+saveMetadata(ctx, extracted)
+
+// GOOD — draft until human confirms
+saveExtractionDraft(ctx, extracted)
+setStatus(ctx, contractID, "pending_review")
+```
+
+## Build & Deploy
+
+- Local: `go run ./services/api/cmd/server`
+- Docker: multi-stage build from repo root (`docker build -t contract-api .`; see root `Dockerfile`).
+- Cloud Run listens on `:8080`; unauthenticated `/health` for probes.
+
+## Do Not
+
+- Add Python, Node backends, or alternate runtimes for services without explicit request.
+- Put service-specific code in `libs/common/`.
+- Use `panic` for expected errors (auth failures, validation, DB errors).
+- Disable IAP, SoD, or HITL for convenience.

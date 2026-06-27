@@ -7,10 +7,13 @@ domain     = "contracts-dev.example.com"
 # Restrict IAP users to your Google Workspace / Cloud Identity domain(s)
 # allowed_email_domains = ["example.com"]
 
-# Set true after creating IAP OAuth client in GCP Console
+# Option A (recommended): enable IAP once OAuth client exists
 enable_iap = false
 # iap_oauth_client_id     = ""
 # iap_oauth_client_secret = ""
+
+# Option B: IAP off — LB is public; restrict source IPs (required by terraform check)
+# cloud_armor_allowed_ips = ["203.0.113.10/32"]
 
 iap_access_groups = [
   # "grp-contract-uploader@example.com",

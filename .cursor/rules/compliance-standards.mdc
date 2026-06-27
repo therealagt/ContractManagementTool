@@ -28,7 +28,8 @@ terraform/modules/     # One module per concern (iap, storage, iam, …)
 schemas/               # NDA/AVV extraction JSON schemas
 ```
 
-- One responsibility per module/service. Shared logic in `libs/` or `packages/common/`, not copy-pasted.
+- One responsibility per module/service. Shared logic in `libs/common/` (Go packages), not copy-pasted.
+- **Language**: Go only for services and shared libs — see `go-standards.mdc`.
 - Dependencies point inward: routes → services → repositories → GCP clients.
 - Terraform: small modules, explicit variables/outputs, no monolithic `main.tf`.
 
@@ -42,27 +43,28 @@ schemas/               # NDA/AVV extraction JSON schemas
 
 ## Patterns
 
-```python
-# BAD — silent failure on compliance gate
-try:
-    validate_pades(pdf)
-except Exception:
-    pass
+```go
+// BAD — silent failure on compliance gate
+result, _ := validatePAdES(pdf)
 
-# GOOD — fail closed, auditable
-result = validate_pades(pdf)
-if not result.is_valid:
-    await audit.log("upload_rejected", contract_id=id, reason=result.error)
-    raise HTTPException(422, "Invalid digital signature")
+// GOOD — fail closed, auditable
+result, err := validatePAdES(pdf)
+if err != nil || !result.Valid {
+    _ = audit.RecordAuditEvent(ctx, db, actor, "upload_rejected", &contractID, map[string]any{
+        "reason": result.Error,
+    }, nil)
+    http.Error(w, "Invalid digital signature", http.StatusUnprocessableEntity)
+    return
+}
 ```
 
-```python
-# BAD — AI output treated as truth
-await db.save_metadata(extracted_json)
+```go
+// BAD — AI output treated as truth
+saveMetadata(ctx, extracted)
 
-# GOOD — draft until human confirms
-await db.save_extraction_draft(extracted_json)
-await db.set_status(contract_id, "pending_review")
+// GOOD — draft until human confirms
+saveExtractionDraft(ctx, extracted)
+setStatus(ctx, contractID, "pending_review")
 ```
 
 ## Do Not

@@ -55,7 +55,11 @@ resource "google_secret_manager_secret" "db_password" {
   secret_id = "contract-db-password-${var.environment}"
 
   replication {
-    auto {}
+    auto {
+      customer_managed_encryption {
+        kms_key_name = var.kms_key_id
+      }
+    }
   }
 }
 

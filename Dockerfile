@@ -1,7 +1,5 @@
-# Deprecated: build from repository root instead:
+# Build from repository root:
 #   docker build -t contract-api .
-#
-# This file is kept for reference; the canonical Dockerfile is at the repo root.
 FROM golang:1.23-alpine AS builder
 
 WORKDIR /src
