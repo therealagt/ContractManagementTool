@@ -1,0 +1,37 @@
+# Copy to terraform.tfvars and fill in values. Never commit terraform.tfvars.
+
+project_id = "your-gcp-project-id"
+region     = "europe-west3"
+domain     = "contracts.example.com"
+
+enable_bucket_lock  = true
+enable_iap          = true
+enable_org_policies = true
+db_tier             = "db-g1-small"
+
+allowed_email_domains = ["example.com"]
+
+# iap_oauth_client_id     = ""
+# iap_oauth_client_secret = ""
+
+iap_access_groups = [
+  # "grp-contract-uploader@example.com",
+  # "grp-contract-reviewer@example.com",
+  # "grp-contract-auditor@example.com",
+  # "grp-contract-admin@example.com",
+]
+
+auth_uploader_emails = [
+  # "uploader@example.com",
+]
+auth_reviewer_emails = [
+  # "reviewer@example.com",
+]
+auth_auditor_emails = [
+  # "auditor@example.com",
+]
+auth_admin_emails = [
+  # "admin@example.com",
+]
+
+# api_image = "europe-west3-docker.pkg.dev/your-project/contract-mgmt-prod/contract-api:latest"

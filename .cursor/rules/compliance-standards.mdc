@@ -1,0 +1,73 @@
+---
+description: Compliance-first standards for NDA/AVV contract archive (GCP, audit-ready)
+alwaysApply: true
+---
+
+# Compliance & Code Standards
+
+Contract archive for signed NDAs/AVVs on GCP. Regulatory adherence is non-negotiable; prefer the smallest correct change.
+
+## Regulatory & Security
+
+- **Access**: Human-facing services only via IAP + HTTPS LB. No public Cloud Run URLs, no user-facing GCS signed URLs.
+- **Workers**: `INTERNAL_ONLY` ingress; triggered by Pub/Sub/Scheduler only.
+- **SoD**: Enforce `uploaded_by ≠ confirmed_by`. Never let one role upload and approve the same contract.
+- **Signatures**: Validate PAdES on upload; reject invalid. Store validation result in audit trail.
+- **AI**: Gemini output is `draft` only. `confirmed_metadata` is the sole source of truth after HITL review.
+- **Archive**: Write to WORM bucket only after human confirmation. Never auto-repair hash mismatches — alert and log.
+- **Audit**: Log workflow events (`audit_events`) and read access (`access_events`). Use hash-chained events where implemented.
+- **Data**: Region `europe-west3`. Minimize PII in DB/BigQuery — no full contract text outside GCS.
+- **Secrets**: Secret Manager only. Never commit credentials, keys, or `.tfvars` with secrets.
+
+## Modular Design
+
+```
+services/api/          # IAP-protected REST, auth, routes
+services/*-worker/     # Single-purpose internal workers
+terraform/modules/     # One module per concern (iap, storage, iam, …)
+schemas/               # NDA/AVV extraction JSON schemas
+```
+
+- One responsibility per module/service. Shared logic in `libs/` or `packages/common/`, not copy-pasted.
+- Dependencies point inward: routes → services → repositories → GCP clients.
+- Terraform: small modules, explicit variables/outputs, no monolithic `main.tf`.
+
+## Code Style
+
+- **Short, maintainable code**: Small functions, early returns, no premature abstraction.
+- **Comments**: Brief, only for non-obvious compliance or regulatory intent — not narrating what code does.
+- **Explicit over clever**: Named constants for statuses, roles, retention periods.
+- **Errors**: Fail closed on auth, validation, and signature checks. No silent swallowing.
+- **Scope**: Do not add unrelated features, tests, or docs unless requested.
+
+## Patterns
+
+```python
+# BAD — silent failure on compliance gate
+try:
+    validate_pades(pdf)
+except Exception:
+    pass
+
+# GOOD — fail closed, auditable
+result = validate_pades(pdf)
+if not result.is_valid:
+    await audit.log("upload_rejected", contract_id=id, reason=result.error)
+    raise HTTPException(422, "Invalid digital signature")
+```
+
+```python
+# BAD — AI output treated as truth
+await db.save_metadata(extracted_json)
+
+# GOOD — draft until human confirms
+await db.save_extraction_draft(extracted_json)
+await db.set_status(contract_id, "pending_review")
+```
+
+## Do Not
+
+- Bypass IAP, SoD, or HITL for convenience.
+- Store secrets in code, env files in git, or disable security hooks without explicit request.
+- Auto-delete or overwrite archived objects on integrity failures.
+- Expand scope beyond the task (no drive-by refactors).
