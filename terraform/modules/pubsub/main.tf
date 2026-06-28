@@ -15,6 +15,11 @@ variable "extraction_worker_uri" {
   description = "Cloud Run URI for extraction worker push endpoint (without path)"
 }
 
+variable "archive_worker_uri" {
+  type        = string
+  description = "Cloud Run URI for archive worker push endpoint (without path)"
+}
+
 resource "google_pubsub_topic" "extraction" {
   name    = "contract-extraction-${var.environment}"
   project = var.project_id

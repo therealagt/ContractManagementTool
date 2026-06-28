@@ -15,6 +15,8 @@ type Contract struct {
 	SHA256         string
 	UploadedBy     string
 	UploadedAt     time.Time
+	ConfirmedBy    sql.NullString
+	ConfirmedAt    sql.NullTime
 }
 
 type SignatureValidation struct {
@@ -37,8 +39,26 @@ type ExtractionDraft struct {
 	ExtractedAt     time.Time
 }
 
+type ConfirmedMetadata struct {
+	ContractID    string
+	MetadataJSON  json.RawMessage
+	ConfirmedBy   string
+	ConfirmedAt   time.Time
+	DiffFromDraft json.RawMessage
+}
+
+type ArchiveRecord struct {
+	ContractID         string
+	GCSPath            string
+	SHA256             string
+	RetentionExpiresAt time.Time
+	ArchivedAt         time.Time
+}
+
 type ContractDetail struct {
 	Contract
 	Signature *SignatureValidation
 	Draft     *ExtractionDraft
+	Confirmed *ConfirmedMetadata
+	Archive   *ArchiveRecord
 }

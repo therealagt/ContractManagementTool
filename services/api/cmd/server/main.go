@@ -42,10 +42,14 @@ func main() {
 	staging, stagingCleanup := mustStaging(ctx, settings)
 	defer stagingCleanup()
 
-	publisher, publisherCleanup := mustPublisher(ctx, settings)
+	publisher, publisherCleanup := mustPublisher(ctx, settings, settings.PubSubExtractionTopic, "extraction")
 	defer publisherCleanup()
 
+	archivePublisher, archiveCleanup := mustArchivePublisher(ctx, settings)
+	defer archiveCleanup()
+
 	uploads := services.NewUploadService(database, staging, publisher)
+	reviews := services.NewReviewService(database, archivePublisher)
 	validator := auth.NewIAPValidator(settings)
 	accessLogger := newAccessLoggerFactory(database)
 
@@ -55,6 +59,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 	routes.Mount(r, settings, validator, accessLogger)
 	routes.MountContracts(r, settings, validator, uploads, accessLogger)
+	routes.MountReview(r, settings, validator, reviews, accessLogger)
 
 	addr := envOr("PORT", "8080")
 	server := &http.Server{
@@ -97,14 +102,26 @@ func mustStaging(ctx context.Context, settings *config.Settings) (services.Stagi
 	return local, func() {}
 }
 
-func mustPublisher(ctx context.Context, settings *config.Settings) (services.ExtractionPublisher, func()) {
-	if settings.PubSubExtractionTopic == "" || settings.GCPProjectID == "" {
-		log.Printf("pubsub publisher disabled (set PUBSUB_EXTRACTION_TOPIC for extraction pipeline)")
+func mustPublisher(ctx context.Context, settings *config.Settings, topic, label string) (services.ExtractionPublisher, func()) {
+	if topic == "" || settings.GCPProjectID == "" {
+		log.Printf("pubsub %s publisher disabled (set topic env for pipeline)", label)
 		return nil, func() {}
 	}
-	p, err := pubsub.NewPublisher(ctx, settings.GCPProjectID, settings.PubSubExtractionTopic)
+	p, err := pubsub.NewPublisher(ctx, settings.GCPProjectID, topic)
 	if err != nil {
-		log.Fatalf("pubsub: %v", err)
+		log.Fatalf("pubsub %s: %v", label, err)
+	}
+	return p, func() { _ = p.Close() }
+}
+
+func mustArchivePublisher(ctx context.Context, settings *config.Settings) (services.ArchivePublisher, func()) {
+	if settings.PubSubArchiveTopic == "" || settings.GCPProjectID == "" {
+		log.Printf("pubsub archive publisher disabled (set PUBSUB_ARCHIVE_TOPIC for archive pipeline)")
+		return nil, func() {}
+	}
+	p, err := pubsub.NewPublisher(ctx, settings.GCPProjectID, settings.PubSubArchiveTopic)
+	if err != nil {
+		log.Fatalf("pubsub archive: %v", err)
 	}
 	return p, func() { _ = p.Close() }
 }

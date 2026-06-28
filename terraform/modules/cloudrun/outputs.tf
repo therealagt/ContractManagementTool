@@ -17,3 +17,11 @@ output "extraction_service_name" {
 output "extraction_service_uri" {
   value = google_cloud_run_v2_service.extraction.uri
 }
+
+output "archive_service_name" {
+  value = google_cloud_run_v2_service.archive.name
+}
+
+output "archive_service_uri" {
+  value = google_cloud_run_v2_service.archive.uri
+}

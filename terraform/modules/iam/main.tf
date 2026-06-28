@@ -24,6 +24,12 @@ resource "google_project_iam_member" "ingestion_cloudsql_client" {
   member  = "serviceAccount:${google_service_account.accounts["ingestion"].email}"
 }
 
+resource "google_project_iam_member" "archive_cloudsql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.accounts["archive"].email}"
+}
+
 resource "google_project_iam_member" "report_bigquery" {
   project = var.project_id
   role    = "roles/bigquery.dataViewer"

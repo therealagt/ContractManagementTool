@@ -88,9 +88,25 @@ variable "extraction_worker_image" {
   default     = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
+variable "archive_worker_image" {
+  type        = string
+  description = "Container image for archive worker"
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
 variable "ingestion_service_account_email" {
   type    = string
   default = ""
+}
+
+variable "archive_service_account_email" {
+  type    = string
+  default = ""
+}
+
+variable "retention_years" {
+  type    = number
+  default = 10
 }
 
 variable "push_invoker_member" {

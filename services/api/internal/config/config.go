@@ -29,6 +29,7 @@ type Settings struct {
 	AuthAuditorEmails        string
 	AuthAdminEmails          string
 	PubSubExtractionTopic    string
+	PubSubArchiveTopic       string
 }
 
 func Load() *Settings {
@@ -51,6 +52,7 @@ func Load() *Settings {
 		AuthAuditorEmails:        os.Getenv("AUTH_AUDITOR_EMAILS"),
 		AuthAdminEmails:          os.Getenv("AUTH_ADMIN_EMAILS"),
 		PubSubExtractionTopic:    os.Getenv("PUBSUB_EXTRACTION_TOPIC"),
+		PubSubArchiveTopic:       os.Getenv("PUBSUB_ARCHIVE_TOPIC"),
 	}
 	s.applyDevDefaults()
 	return s

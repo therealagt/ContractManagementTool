@@ -29,6 +29,10 @@ func StagingObjectPath(contractID string) string {
 	return fmt.Sprintf("staging/%s.pdf", contractID)
 }
 
+func ArchiveObjectPath(contractID string) string {
+	return fmt.Sprintf("archive/%s.pdf", contractID)
+}
+
 func (c *Client) Upload(ctx context.Context, objectPath string, r io.Reader, contentType string) error {
 	w := c.client.Bucket(c.bucket).Object(objectPath).NewWriter(ctx)
 	w.ContentType = contentType
@@ -54,4 +58,11 @@ func (c *Client) Download(ctx context.Context, objectPath string) ([]byte, error
 
 func (c *Client) FullPath(objectPath string) string {
 	return fmt.Sprintf("gs://%s/%s", c.bucket, objectPath)
+}
+
+func (c *Client) Delete(ctx context.Context, objectPath string) error {
+	if err := c.client.Bucket(c.bucket).Object(objectPath).Delete(ctx); err != nil {
+		return fmt.Errorf("gcs delete: %w", err)
+	}
+	return nil
 }

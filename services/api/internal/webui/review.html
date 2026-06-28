@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vertrags-Review</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1a1a1a; }
+    body { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.5rem; }
+    .hint { background: #fff8e1; border: 1px solid #ffe082; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #e0e0e0; }
+    button { cursor: pointer; padding: 0.4rem 0.8rem; margin-right: 0.5rem; }
+    textarea { width: 100%; min-height: 200px; font-family: ui-monospace, monospace; }
+    #detail { display: none; margin-top: 2rem; }
+    .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>Review-Queue</h1>
+  <p class="hint">KI-Vorschlag — menschliche Prüfung erforderlich. Sie können keine eigenen Uploads bestätigen (Vier-Augen-Prinzip).</p>
+  <p id="status-msg"></p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Typ</th><th>Uploader</th><th>Datum</th><th></th></tr>
+    </thead>
+    <tbody id="queue"></tbody>
+  </table>
+
+  <section id="detail">
+    <h2>Vertrag <span id="detail-id"></span></h2>
+    <p>Metadaten (bearbeitbar):</p>
+    <textarea id="metadata"></textarea>
+    <p>
+      <button id="confirm-btn">Bestätigen</button>
+      <button id="reject-btn">Ablehnen</button>
+    </p>
+    <p id="action-msg" class="error"></p>
+  </section>
+
+  <script>
+    let selectedId = null;
+
+    async function api(path, options) {
+      const res = await fetch(path, { credentials: 'same-origin', ...options });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+      return res.json();
+    }
+
+    async function loadQueue() {
+      const data = await api('/contracts/review-queue');
+      const tbody = document.getElementById('queue');
+      tbody.innerHTML = '';
+      for (const item of data.items || []) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.id.slice(0, 8)}…</td>
+          <td>${item.type}</td>
+          <td>${item.uploaded_by}</td>
+          <td>${new Date(item.uploaded_at).toLocaleString('de-DE')}</td>
+          <td><button data-id="${item.id}">Öffnen</button></td>`;
+        tbody.appendChild(tr);
+      }
+      tbody.querySelectorAll('button[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => openContract(btn.dataset.id));
+      });
+    }
+
+    async function openContract(id) {
+      selectedId = id;
+      document.getElementById('detail').style.display = 'block';
+      document.getElementById('detail-id').textContent = id;
+      document.getElementById('action-msg').textContent = '';
+      const detail = await api('/contracts/' + id);
+      const draft = detail.extraction_draft || {};
+      document.getElementById('metadata').value = JSON.stringify(draft, null, 2);
+    }
+
+    document.getElementById('confirm-btn').addEventListener('click', async () => {
+      if (!selectedId) return;
+      const msg = document.getElementById('action-msg');
+      msg.textContent = '';
+      try {
+        const metadata = JSON.parse(document.getElementById('metadata').value);
+        await api('/contracts/' + selectedId + '/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ metadata }),
+        });
+        msg.textContent = 'Bestätigt — Archivierung wird ausgelöst.';
+        msg.className = '';
+        await loadQueue();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'error';
+      }
+    });
+
+    document.getElementById('reject-btn').addEventListener('click', async () => {
+      if (!selectedId) return;
+      const reason = prompt('Ablehnungsgrund (optional):') || '';
+      const msg = document.getElementById('action-msg');
+      try {
+        await api('/contracts/' + selectedId + '/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason }),
+        });
+        msg.textContent = 'Abgelehnt.';
+        msg.className = '';
+        await loadQueue();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'error';
+      }
+    });
+
+    loadQueue().catch(err => {
+      document.getElementById('status-msg').textContent = 'Fehler beim Laden: ' + err.message;
+      document.getElementById('status-msg').className = 'error';
+    });
+  </script>
+</body>
+</html>

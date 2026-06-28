@@ -92,6 +92,12 @@ variable "extraction_worker_image" {
   default     = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
+variable "archive_worker_image" {
+  type        = string
+  description = "Container image for archive worker"
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
 variable "gemini_model" {
   type    = string
   default = "gemini-2.0-flash"

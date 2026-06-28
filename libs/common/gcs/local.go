@@ -48,3 +48,8 @@ func (c *LocalClient) Download(ctx context.Context, objectPath string) ([]byte, 
 func (c *LocalClient) FullPath(objectPath string) string {
 	return fmt.Sprintf("file://%s/%s", c.bucket, objectPath)
 }
+
+func (c *LocalClient) Delete(ctx context.Context, objectPath string) error {
+	_ = ctx
+	return os.Remove(filepath.Join(c.root, objectPath))
+}

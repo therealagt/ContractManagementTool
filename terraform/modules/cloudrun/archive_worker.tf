@@ -1,11 +1,11 @@
-resource "google_cloud_run_v2_service" "api" {
-  name     = "contract-api-${var.environment}"
+resource "google_cloud_run_v2_service" "archive" {
+  name     = "contract-archive-${var.environment}"
   project  = var.project_id
   location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 
   template {
-    service_account = var.api_service_account_email
+    service_account = var.archive_service_account_email
 
     scaling {
       min_instance_count = 0
@@ -18,7 +18,7 @@ resource "google_cloud_run_v2_service" "api" {
     }
 
     containers {
-      image = var.api_image
+      image = var.archive_worker_image
 
       ports {
         container_port = 8080
@@ -75,48 +75,8 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
-        name  = "IAP_AUDIENCE"
-        value = var.iap_audience
-      }
-
-      env {
-        name  = "IAP_JWT_VALIDATION_DISABLED"
-        value = tostring(var.iap_jwt_validation_disabled)
-      }
-
-      env {
-        name  = "ALLOWED_EMAIL_DOMAINS"
-        value = join(",", var.allowed_email_domains)
-      }
-
-      env {
-        name  = "AUTH_UPLOADER_EMAILS"
-        value = join(",", var.auth_uploader_emails)
-      }
-
-      env {
-        name  = "AUTH_REVIEWER_EMAILS"
-        value = join(",", var.auth_reviewer_emails)
-      }
-
-      env {
-        name  = "AUTH_AUDITOR_EMAILS"
-        value = join(",", var.auth_auditor_emails)
-      }
-
-      env {
-        name  = "AUTH_ADMIN_EMAILS"
-        value = join(",", var.auth_admin_emails)
-      }
-
-      env {
-        name  = "PUBSUB_EXTRACTION_TOPIC"
-        value = "contract-extraction-${var.environment}"
-      }
-
-      env {
-        name  = "PUBSUB_ARCHIVE_TOPIC"
-        value = "contract-archive-${var.environment}"
+        name  = "RETENTION_YEARS"
+        value = tostring(var.retention_years)
       }
 
       resources {
@@ -136,16 +96,6 @@ resource "google_cloud_run_v2_service" "api" {
         period_seconds        = 10
         failure_threshold     = 3
       }
-
-      liveness_probe {
-        http_get {
-          path = "/health"
-          port = 8080
-        }
-        timeout_seconds   = 3
-        period_seconds    = 30
-        failure_threshold = 3
-      }
     }
 
     annotations = {
@@ -160,14 +110,10 @@ resource "google_cloud_run_v2_service" "api" {
   }
 }
 
-data "google_project" "current" {
-  project_id = var.project_id
-}
-
-resource "google_cloud_run_v2_service_iam_member" "api_invoker_lb" {
+resource "google_cloud_run_v2_service_iam_member" "archive_pubsub_invoker" {
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.api.name
+  name     = google_cloud_run_v2_service.archive.name
   role     = "roles/run.invoker"
-  member   = "serviceAccount:service-${data.google_project.current.number}@serverless-robot-prod.iam.gserviceaccount.com"
+  member   = var.push_invoker_member
 }

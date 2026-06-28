@@ -132,10 +132,13 @@ module "cloudrun" {
   environment                     = var.environment
   api_service_account_email       = module.iam.service_account_emails["api"]
   ingestion_service_account_email = module.iam.service_account_emails["ingestion"]
+  archive_service_account_email   = module.iam.service_account_emails["archive"]
   vpc_connector_id                = module.networking.vpc_connector_id
   api_image                       = var.api_image
   extraction_worker_image         = var.extraction_worker_image
+  archive_worker_image            = var.archive_worker_image
   gemini_model                    = var.gemini_model
+  retention_years                 = var.retention_years
   cloud_sql_connection_name       = module.cloudsql.instance_connection_name
   db_name                         = module.cloudsql.database_name
   db_user                         = module.cloudsql.database_user
@@ -161,6 +164,7 @@ module "pubsub" {
   region                = var.region
   environment           = var.environment
   extraction_worker_uri = module.cloudrun.extraction_service_uri
+  archive_worker_uri    = module.cloudrun.archive_service_uri
 
   depends_on = [module.cloudrun]
 }
@@ -168,6 +172,13 @@ module "pubsub" {
 resource "google_pubsub_topic_iam_member" "api_extraction_publisher" {
   project = var.project_id
   topic   = module.pubsub.extraction_topic_id
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${module.iam.service_account_emails["api"]}"
+}
+
+resource "google_pubsub_topic_iam_member" "api_archive_publisher" {
+  project = var.project_id
+  topic   = module.pubsub.archive_topic_id
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${module.iam.service_account_emails["api"]}"
 }

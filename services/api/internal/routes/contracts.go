@@ -140,5 +140,21 @@ func contractDetailResponse(d *contracts.ContractDetail) map[string]any {
 		out["extraction_draft"] = json.RawMessage(d.Draft.ExtractedJSON)
 		out["schema_version"] = d.Draft.SchemaVersion
 	}
+	if d.Confirmed != nil {
+		out["confirmed_metadata"] = json.RawMessage(d.Confirmed.MetadataJSON)
+		out["confirmed_by"] = d.Confirmed.ConfirmedBy
+		out["confirmed_at"] = d.Confirmed.ConfirmedAt
+		if len(d.Confirmed.DiffFromDraft) > 0 {
+			out["diff_from_draft"] = json.RawMessage(d.Confirmed.DiffFromDraft)
+		}
+	}
+	if d.Archive != nil {
+		out["archive"] = map[string]any{
+			"gcs_path":             d.Archive.GCSPath,
+			"sha256":               d.Archive.SHA256,
+			"archived_at":          d.Archive.ArchivedAt,
+			"retention_expires_at": d.Archive.RetentionExpiresAt,
+		}
+	}
 	return out
 }

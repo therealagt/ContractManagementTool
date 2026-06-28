@@ -43,6 +43,7 @@ module "stack" {
 
   api_image               = var.api_image
   extraction_worker_image = var.extraction_worker_image
+  archive_worker_image    = var.archive_worker_image
   gemini_model            = var.gemini_model
   allowed_email_domains   = var.allowed_email_domains
   auth_uploader_emails  = var.auth_uploader_emails

@@ -15,6 +15,7 @@ var migrationFS embed.FS
 var migrationVersions = []string{
 	"001_initial",
 	"002_contracts",
+	"003_review_archive",
 }
 
 func Run(ctx context.Context, db *sql.DB, sqlite bool) error {

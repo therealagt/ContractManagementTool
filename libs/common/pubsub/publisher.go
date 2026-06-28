@@ -15,6 +15,12 @@ type ExtractionRequested struct {
 	SchemaVersion string `json:"schema_version"`
 }
 
+type ArchiveRequested struct {
+	ContractID     string `json:"contract_id"`
+	GCSStagingPath string `json:"gcs_staging_path"`
+	SHA256         string `json:"sha256"`
+}
+
 type Publisher struct {
 	client *gcpubsub.Client
 	topic  string
@@ -33,15 +39,23 @@ func (p *Publisher) Close() error {
 }
 
 func (p *Publisher) PublishExtraction(ctx context.Context, msg ExtractionRequested) error {
+	return p.publish(ctx, msg)
+}
+
+func (p *Publisher) PublishArchive(ctx context.Context, msg ArchiveRequested) error {
+	return p.publish(ctx, msg)
+}
+
+func (p *Publisher) publish(ctx context.Context, msg any) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("marshal extraction message: %w", err)
+		return fmt.Errorf("marshal pubsub message: %w", err)
 	}
 	publisher := p.client.Publisher(p.topic)
 	result := publisher.Publish(ctx, &gcpubsub.Message{Data: data})
 	_, err = result.Get(ctx)
 	if err != nil {
-		return fmt.Errorf("publish extraction: %w", err)
+		return fmt.Errorf("publish: %w", err)
 	}
 	return nil
 }
