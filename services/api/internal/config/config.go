@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -30,9 +31,11 @@ type Settings struct {
 	AuthAdminEmails          string
 	PubSubExtractionTopic    string
 	PubSubArchiveTopic       string
+	ReviewSLADays            int
 }
 
 func Load() *Settings {
+	sla, _ := strconv.Atoi(envOr("REVIEW_SLA_DAYS", "7"))
 	s := &Settings{
 		Environment:              envOr("ENVIRONMENT", "dev"),
 		GCPProjectID:             os.Getenv("GCP_PROJECT_ID"),
@@ -53,6 +56,7 @@ func Load() *Settings {
 		AuthAdminEmails:          os.Getenv("AUTH_ADMIN_EMAILS"),
 		PubSubExtractionTopic:    os.Getenv("PUBSUB_EXTRACTION_TOPIC"),
 		PubSubArchiveTopic:       os.Getenv("PUBSUB_ARCHIVE_TOPIC"),
+		ReviewSLADays:            sla,
 	}
 	s.applyDevDefaults()
 	return s

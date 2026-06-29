@@ -15,6 +15,7 @@ import (
 
 	"github.com/therealagt/ContractManagementTool/libs/common/gcs"
 	"github.com/therealagt/ContractManagementTool/libs/common/pubsub"
+	"github.com/therealagt/ContractManagementTool/libs/common/report"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/auth"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/config"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/db"
@@ -50,6 +51,11 @@ func main() {
 
 	uploads := services.NewUploadService(database, staging, publisher)
 	reviews := services.NewReviewService(database, archivePublisher)
+	archive, archiveCleanup := mustArchive(ctx, settings)
+	defer archiveCleanup()
+
+	legalHolds := services.NewLegalHoldService(database, archive)
+	auditReports := services.NewAuditReportService(database, archive, settings.ReviewSLADays)
 	validator := auth.NewIAPValidator(settings)
 	accessLogger := newAccessLoggerFactory(database)
 
@@ -60,6 +66,7 @@ func main() {
 	routes.Mount(r, settings, validator, accessLogger)
 	routes.MountContracts(r, settings, validator, uploads, accessLogger)
 	routes.MountReview(r, settings, validator, reviews, accessLogger)
+	routes.MountAudit(r, settings, validator, auditReports, legalHolds, accessLogger)
 
 	addr := envOr("PORT", "8080")
 	server := &http.Server{
@@ -124,6 +131,27 @@ func mustArchivePublisher(ctx context.Context, settings *config.Settings) (servi
 		log.Fatalf("pubsub archive: %v", err)
 	}
 	return p, func() { _ = p.Close() }
+}
+
+type archiveBucket interface {
+	services.HoldStorage
+	report.ArchiveDownloader
+}
+
+func mustArchive(ctx context.Context, settings *config.Settings) (archiveBucket, func()) {
+	if settings.GCSArchiveBucket != "" && settings.GCPProjectID != "" {
+		client, err := gcs.NewClient(ctx, settings.GCSArchiveBucket)
+		if err != nil {
+			log.Fatalf("archive gcs: %v", err)
+		}
+		return client, func() { _ = client.Close() }
+	}
+	local, err := gcs.NewLocalClient(".local-gcs", "local-archive")
+	if err != nil {
+		log.Fatalf("local archive: %v", err)
+	}
+	log.Printf("using local archive storage (set GCS_ARCHIVE_BUCKET for GCP)")
+	return local, func() {}
 }
 
 func newAccessLoggerFactory(database *sql.DB) func(*http.Request) *auth.AccessLogger {

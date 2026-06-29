@@ -56,3 +56,21 @@ resource "google_bigquery_table" "alert_events" {
     { name = "created_at", type = "TIMESTAMP", mode = "REQUIRED" },
   ])
 }
+
+resource "google_bigquery_table" "control_matrix" {
+  dataset_id = google_bigquery_dataset.audit.dataset_id
+  table_id   = "control_matrix"
+  project    = var.project_id
+
+  schema = jsonencode([
+    { name = "id", type = "STRING", mode = "REQUIRED" },
+    { name = "control_ref", type = "STRING", mode = "REQUIRED" },
+    { name = "name", type = "STRING", mode = "REQUIRED" },
+    { name = "status", type = "STRING", mode = "REQUIRED" },
+    { name = "nda", type = "STRING", mode = "NULLABLE" },
+    { name = "avv", type = "STRING", mode = "NULLABLE" },
+    { name = "last_checked", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "open_items", type = "STRING", mode = "NULLABLE" },
+    { name = "snapshot_at", type = "TIMESTAMP", mode = "REQUIRED" },
+  ])
+}

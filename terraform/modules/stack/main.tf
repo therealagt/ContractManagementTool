@@ -20,6 +20,8 @@ locals {
     "accesscontextmanager.googleapis.com",
     "orgpolicy.googleapis.com",
     "pubsub.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "monitoring.googleapis.com",
   ]
 }
 
@@ -57,6 +59,7 @@ module "compliance" {
     "serviceAccount:${module.iam.service_account_emails["ingestion"]}",
     "serviceAccount:${module.iam.service_account_emails["archive"]}",
     "serviceAccount:${module.iam.service_account_emails["report"]}",
+    "serviceAccount:${module.iam.service_account_emails["integrity"]}",
   ]
 
   depends_on = [google_project_service.apis]
@@ -133,12 +136,16 @@ module "cloudrun" {
   api_service_account_email       = module.iam.service_account_emails["api"]
   ingestion_service_account_email = module.iam.service_account_emails["ingestion"]
   archive_service_account_email   = module.iam.service_account_emails["archive"]
+  integrity_service_account_email = module.iam.service_account_emails["integrity"]
   vpc_connector_id                = module.networking.vpc_connector_id
   api_image                       = var.api_image
   extraction_worker_image         = var.extraction_worker_image
   archive_worker_image            = var.archive_worker_image
+  integrity_cron_image            = var.integrity_cron_image
   gemini_model                    = var.gemini_model
   retention_years                 = var.retention_years
+  review_sla_days                 = var.review_sla_days
+  bigquery_dataset_id             = module.bigquery.dataset_id
   cloud_sql_connection_name       = module.cloudsql.instance_connection_name
   db_name                         = module.cloudsql.database_name
   db_user                         = module.cloudsql.database_user
@@ -167,6 +174,16 @@ module "pubsub" {
   archive_worker_uri    = module.cloudrun.archive_service_uri
 
   depends_on = [module.cloudrun]
+}
+
+module "monitoring" {
+  source = "../monitoring"
+
+  project_id      = var.project_id
+  environment     = var.environment
+  alert_email_ops = var.alert_email_ops
+
+  depends_on = [google_project_service.apis]
 }
 
 resource "google_pubsub_topic_iam_member" "api_extraction_publisher" {
@@ -218,6 +235,12 @@ resource "google_storage_bucket_iam_member" "api_archive_read" {
   member = "serviceAccount:${module.iam.service_account_emails["api"]}"
 }
 
+resource "google_storage_bucket_iam_member" "api_archive_admin" {
+  bucket = module.storage.archive_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.iam.service_account_emails["api"]}"
+}
+
 resource "google_storage_bucket_iam_member" "ingestion_staging_read" {
   bucket = module.storage.staging_bucket_name
   role   = "roles/storage.objectViewer"
@@ -240,6 +263,19 @@ resource "google_storage_bucket_iam_member" "report_archive_read" {
   bucket = module.storage.archive_bucket_name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${module.iam.service_account_emails["report"]}"
+}
+
+resource "google_storage_bucket_iam_member" "integrity_archive_read" {
+  bucket = module.storage.archive_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${module.iam.service_account_emails["integrity"]}"
+}
+
+resource "google_bigquery_dataset_iam_member" "integrity_alert_writer" {
+  dataset_id = module.bigquery.dataset_id
+  project    = var.project_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${module.iam.service_account_emails["integrity"]}"
 }
 
 resource "google_bigquery_dataset_iam_member" "api_audit_writer" {
@@ -284,7 +320,8 @@ check "vpc_sc_ingress_identities" {
       module.iam.service_account_emails["ingestion"],
       module.iam.service_account_emails["archive"],
       module.iam.service_account_emails["report"],
-    ]) == 4
+      module.iam.service_account_emails["integrity"],
+    ]) == 5
     error_message = "VPC Service Controls requires workload service accounts."
   }
 }

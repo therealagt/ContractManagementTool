@@ -25,3 +25,7 @@ output "archive_service_name" {
 output "archive_service_uri" {
   value = google_cloud_run_v2_service.archive.uri
 }
+
+output "integrity_service_uri" {
+  value = google_cloud_run_v2_service.integrity.uri
+}

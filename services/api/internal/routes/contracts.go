@@ -156,5 +156,12 @@ func contractDetailResponse(d *contracts.ContractDetail) map[string]any {
 			"retention_expires_at": d.Archive.RetentionExpiresAt,
 		}
 	}
+	if d.LegalHold != nil {
+		out["legal_hold"] = map[string]any{
+			"reason":     d.LegalHold.Reason,
+			"placed_by":  d.LegalHold.PlacedBy,
+			"placed_at":  d.LegalHold.PlacedAt,
+		}
+	}
 	return out
 }

@@ -44,7 +44,10 @@ module "stack" {
   api_image               = var.api_image
   extraction_worker_image = var.extraction_worker_image
   archive_worker_image    = var.archive_worker_image
+  integrity_cron_image    = var.integrity_cron_image
   gemini_model            = var.gemini_model
+  review_sla_days         = var.review_sla_days
+  alert_email_ops         = var.alert_email_ops
   allowed_email_domains   = var.allowed_email_domains
   auth_uploader_emails  = var.auth_uploader_emails
   auth_reviewer_emails  = var.auth_reviewer_emails

@@ -55,10 +55,28 @@ type ArchiveRecord struct {
 	ArchivedAt         time.Time
 }
 
+type LegalHold struct {
+	ContractID string
+	Reason     string
+	PlacedBy   string
+	PlacedAt   time.Time
+	ReleasedAt sql.NullTime
+}
+
+type IntegrityCheckRun struct {
+	ID            string
+	CheckedCount  int
+	FailedCount   int
+	ChainValid    bool
+	StartedAt     time.Time
+	CompletedAt   time.Time
+}
+
 type ContractDetail struct {
 	Contract
 	Signature *SignatureValidation
 	Draft     *ExtractionDraft
 	Confirmed *ConfirmedMetadata
 	Archive   *ArchiveRecord
+	LegalHold *LegalHold
 }

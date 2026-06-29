@@ -5,11 +5,17 @@ import (
 	"net/http"
 )
 
-//go:embed review.html
+//go:embed review.html audit.html
 var content embed.FS
 
 func ReviewPage(w http.ResponseWriter, _ *http.Request) {
 	data, _ := content.ReadFile("review.html")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(data)
+}
+
+func AuditPage(w http.ResponseWriter, _ *http.Request) {
+	data, _ := content.ReadFile("audit.html")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(data)
 }

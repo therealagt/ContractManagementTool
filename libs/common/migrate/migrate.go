@@ -16,6 +16,7 @@ var migrationVersions = []string{
 	"001_initial",
 	"002_contracts",
 	"003_review_archive",
+	"004_phase4_audit",
 }
 
 func Run(ctx context.Context, db *sql.DB, sqlite bool) error {

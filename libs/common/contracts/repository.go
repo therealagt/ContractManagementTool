@@ -117,6 +117,7 @@ func (r *Repository) GetByID(ctx context.Context, contractID string) (*ContractD
 	detail.Draft, _ = r.getDraft(ctx, contractID)
 	detail.Confirmed, _ = r.getConfirmed(ctx, contractID)
 	detail.Archive, _ = r.getArchive(ctx, contractID)
+	detail.LegalHold, _ = r.getActiveLegalHold(ctx, contractID)
 	return detail, nil
 }
 
@@ -351,4 +352,162 @@ func scanTime(v any) time.Time {
 func ValidationResultJSON(result any) json.RawMessage {
 	b, _ := json.Marshal(result)
 	return b
+}
+
+func (r *Repository) ListArchiveRecords(ctx context.Context) ([]ArchiveRecord, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT contract_id, gcs_path, sha256, retention_expires_at, archived_at FROM archive_records`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list archive records: %w", err)
+	}
+	defer rows.Close()
+
+	var records []ArchiveRecord
+	for rows.Next() {
+		var rec ArchiveRecord
+		var retentionAt, archivedAt any
+		if err := rows.Scan(&rec.ContractID, &rec.GCSPath, &rec.SHA256, &retentionAt, &archivedAt); err != nil {
+			return nil, err
+		}
+		rec.RetentionExpiresAt = scanTime(retentionAt)
+		rec.ArchivedAt = scanTime(archivedAt)
+		records = append(records, rec)
+	}
+	return records, rows.Err()
+}
+
+func (r *Repository) ListArchivedContractIDs(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT contract_id FROM archive_records ORDER BY archived_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (r *Repository) CountByStatus(ctx context.Context) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT status, COUNT(1) FROM contracts GROUP BY status`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, err
+		}
+		out[status] = count
+	}
+	return out, rows.Err()
+}
+
+func (r *Repository) CountPendingReviewBeyondSLA(ctx context.Context, slaDays int) (int, error) {
+	cutoff := time.Now().UTC().AddDate(0, 0, -slaDays)
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(1) FROM contracts WHERE status = $1 AND uploaded_at < $2`,
+		StatusPendingReview, cutoff,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *Repository) PlaceLegalHold(ctx context.Context, contractID, reason, placedBy string) error {
+	now := time.Now().UTC()
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO legal_holds (contract_id, reason, placed_by, placed_at, released_at)
+		 VALUES ($1, $2, $3, $4, NULL)
+		 ON CONFLICT (contract_id) DO UPDATE SET
+		   reason = EXCLUDED.reason,
+		   placed_by = EXCLUDED.placed_by,
+		   placed_at = EXCLUDED.placed_at,
+		   released_at = NULL`,
+		contractID, reason, placedBy, now,
+	)
+	if err != nil {
+		return fmt.Errorf("place legal hold: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) ReleaseLegalHold(ctx context.Context, contractID string) error {
+	now := time.Now().UTC()
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE legal_holds SET released_at = $1 WHERE contract_id = $2 AND released_at IS NULL`,
+		now, contractID,
+	)
+	if err != nil {
+		return fmt.Errorf("release legal hold: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) CountActiveLegalHolds(ctx context.Context) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(1) FROM legal_holds WHERE released_at IS NULL`,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *Repository) SaveIntegrityCheckRun(ctx context.Context, run *IntegrityCheckRun) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO integrity_check_runs (id, checked_count, failed_count, chain_valid, started_at, completed_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		run.ID, run.CheckedCount, run.FailedCount, run.ChainValid, run.StartedAt, run.CompletedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("save integrity check run: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) GetLatestIntegrityCheckRun(ctx context.Context) (*IntegrityCheckRun, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, checked_count, failed_count, chain_valid, started_at, completed_at
+		 FROM integrity_check_runs ORDER BY completed_at DESC LIMIT 1`,
+	)
+	var run IntegrityCheckRun
+	var chainValid bool
+	var startedAt, completedAt any
+	err := row.Scan(&run.ID, &run.CheckedCount, &run.FailedCount, &chainValid, &startedAt, &completedAt)
+	if err != nil {
+		return nil, err
+	}
+	run.ChainValid = chainValid
+	run.StartedAt = scanTime(startedAt)
+	run.CompletedAt = scanTime(completedAt)
+	return &run, nil
+}
+
+func (r *Repository) getActiveLegalHold(ctx context.Context, contractID string) (*LegalHold, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT contract_id, reason, placed_by, placed_at, released_at
+		 FROM legal_holds WHERE contract_id = $1 AND released_at IS NULL`, contractID,
+	)
+	var h LegalHold
+	var placedAt, releasedAt any
+	err := row.Scan(&h.ContractID, &h.Reason, &h.PlacedBy, &placedAt, &releasedAt)
+	if err != nil {
+		return nil, err
+	}
+	h.PlacedAt = scanTime(placedAt)
+	if t := scanTime(releasedAt); !t.IsZero() {
+		h.ReleasedAt = sql.NullTime{Time: t, Valid: true}
+	}
+	return &h, nil
 }

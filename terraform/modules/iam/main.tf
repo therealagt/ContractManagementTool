@@ -30,6 +30,24 @@ resource "google_project_iam_member" "archive_cloudsql_client" {
   member  = "serviceAccount:${google_service_account.accounts["archive"].email}"
 }
 
+resource "google_project_iam_member" "integrity_cloudsql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.accounts["integrity"].email}"
+}
+
+resource "google_project_iam_member" "integrity_metric_writer" {
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.accounts["integrity"].email}"
+}
+
+resource "google_project_iam_member" "integrity_bigquery_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${google_service_account.accounts["integrity"].email}"
+}
+
 resource "google_project_iam_member" "report_bigquery" {
   project = var.project_id
   role    = "roles/bigquery.dataViewer"

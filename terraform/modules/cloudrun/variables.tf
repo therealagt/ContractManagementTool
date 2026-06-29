@@ -104,6 +104,27 @@ variable "archive_service_account_email" {
   default = ""
 }
 
+variable "integrity_service_account_email" {
+  type    = string
+  default = ""
+}
+
+variable "integrity_cron_image" {
+  type        = string
+  description = "Container image for integrity cron"
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "review_sla_days" {
+  type    = number
+  default = 7
+}
+
+variable "bigquery_dataset_id" {
+  type    = string
+  default = ""
+}
+
 variable "retention_years" {
   type    = number
   default = 10

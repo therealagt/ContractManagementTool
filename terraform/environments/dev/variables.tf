@@ -98,6 +98,23 @@ variable "archive_worker_image" {
   default     = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
+variable "integrity_cron_image" {
+  type        = string
+  description = "Container image for integrity cron"
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "review_sla_days" {
+  type    = number
+  default = 7
+}
+
+variable "alert_email_ops" {
+  type        = string
+  description = "Email for P1/P2 operational alerts"
+  default     = ""
+}
+
 variable "gemini_model" {
   type    = string
   default = "gemini-2.0-flash"

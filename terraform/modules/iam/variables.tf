@@ -17,5 +17,6 @@ locals {
     ingestion = "sa-contract-ingestion"
     archive   = "sa-contract-archive"
     report    = "sa-contract-report"
+    integrity = "sa-contract-integrity"
   }
 }

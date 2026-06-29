@@ -1,15 +1,15 @@
-resource "google_cloud_run_v2_service" "api" {
-  name     = "contract-api-${var.environment}"
+resource "google_cloud_run_v2_service" "integrity" {
+  name     = "contract-integrity-${var.environment}"
   project  = var.project_id
   location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 
   template {
-    service_account = var.api_service_account_email
+    service_account = var.integrity_service_account_email
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 5
+      max_instance_count = 2
     }
 
     vpc_access {
@@ -18,7 +18,7 @@ resource "google_cloud_run_v2_service" "api" {
     }
 
     containers {
-      image = var.api_image
+      image = var.integrity_cron_image
 
       ports {
         container_port = 8080
@@ -65,58 +65,13 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
-        name  = "GCS_STAGING_BUCKET"
-        value = var.staging_bucket_name
-      }
-
-      env {
         name  = "GCS_ARCHIVE_BUCKET"
         value = var.archive_bucket_name
       }
 
       env {
-        name  = "IAP_AUDIENCE"
-        value = var.iap_audience
-      }
-
-      env {
-        name  = "IAP_JWT_VALIDATION_DISABLED"
-        value = tostring(var.iap_jwt_validation_disabled)
-      }
-
-      env {
-        name  = "ALLOWED_EMAIL_DOMAINS"
-        value = join(",", var.allowed_email_domains)
-      }
-
-      env {
-        name  = "AUTH_UPLOADER_EMAILS"
-        value = join(",", var.auth_uploader_emails)
-      }
-
-      env {
-        name  = "AUTH_REVIEWER_EMAILS"
-        value = join(",", var.auth_reviewer_emails)
-      }
-
-      env {
-        name  = "AUTH_AUDITOR_EMAILS"
-        value = join(",", var.auth_auditor_emails)
-      }
-
-      env {
-        name  = "AUTH_ADMIN_EMAILS"
-        value = join(",", var.auth_admin_emails)
-      }
-
-      env {
-        name  = "PUBSUB_EXTRACTION_TOPIC"
-        value = "contract-extraction-${var.environment}"
-      }
-
-      env {
-        name  = "PUBSUB_ARCHIVE_TOPIC"
-        value = "contract-archive-${var.environment}"
+        name  = "BIGQUERY_DATASET"
+        value = var.bigquery_dataset_id
       }
 
       env {
@@ -141,16 +96,6 @@ resource "google_cloud_run_v2_service" "api" {
         period_seconds        = 10
         failure_threshold     = 3
       }
-
-      liveness_probe {
-        http_get {
-          path = "/health"
-          port = 8080
-        }
-        timeout_seconds   = 3
-        period_seconds    = 30
-        failure_threshold = 3
-      }
     }
 
     annotations = {
@@ -165,14 +110,29 @@ resource "google_cloud_run_v2_service" "api" {
   }
 }
 
-data "google_project" "current" {
-  project_id = var.project_id
-}
-
-resource "google_cloud_run_v2_service_iam_member" "api_invoker_lb" {
+resource "google_cloud_run_v2_service_iam_member" "integrity_scheduler_invoker" {
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.api.name
+  name     = google_cloud_run_v2_service.integrity.name
   role     = "roles/run.invoker"
-  member   = "serviceAccount:service-${data.google_project.current.number}@serverless-robot-prod.iam.gserviceaccount.com"
+  member   = "serviceAccount:${var.integrity_service_account_email}"
+}
+
+resource "google_cloud_scheduler_job" "integrity_nightly" {
+  name        = "contract-integrity-${var.environment}"
+  project     = var.project_id
+  region      = var.region
+  schedule    = "0 2 * * *"
+  time_zone   = "Europe/Berlin"
+  description = "Nightly archive integrity recheck"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.integrity.uri}/run"
+
+    oidc_token {
+      service_account_email = var.integrity_service_account_email
+      audience              = google_cloud_run_v2_service.integrity.uri
+    }
+  }
 }
