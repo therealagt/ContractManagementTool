@@ -11,12 +11,14 @@ variable "environment" {
 }
 
 variable "github_org" {
-  type = string
+  type        = string
+  description = "GitHub organization or user that owns the repository"
 }
 
 variable "github_repo" {
-  type    = string
-  default = "ContractManagementTool"
+  type        = string
+  description = "GitHub repository name"
+  default     = "ContractManagementTool"
 }
 
 variable "artifact_registry_repo" {

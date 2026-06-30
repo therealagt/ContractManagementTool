@@ -48,9 +48,9 @@ module "stack" {
   gemini_model            = var.gemini_model
   review_sla_days         = var.review_sla_days
   alert_email_ops         = var.alert_email_ops
-  allowed_email_domains = var.allowed_email_domains
-  auth_uploader_emails  = var.auth_uploader_emails
-  auth_reviewer_emails  = var.auth_reviewer_emails
-  auth_auditor_emails   = var.auth_auditor_emails
-  auth_admin_emails     = var.auth_admin_emails
+  allowed_email_domains   = var.allowed_email_domains
+  auth_uploader_emails    = var.auth_uploader_emails
+  auth_reviewer_emails    = var.auth_reviewer_emails
+  auth_auditor_emails     = var.auth_auditor_emails
+  auth_admin_emails       = var.auth_admin_emails
 }
