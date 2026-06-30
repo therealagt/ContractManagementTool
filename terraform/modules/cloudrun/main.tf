@@ -65,6 +65,11 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
+        name  = "PADES_ALLOW_UNTRUSTED_ROOTS"
+        value = tostring(var.pades_allow_untrusted_roots)
+      }
+
+      env {
         name  = "GCS_STAGING_BUCKET"
         value = var.staging_bucket_name
       }

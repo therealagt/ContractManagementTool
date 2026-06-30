@@ -1,0 +1,91 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_REGION: europe-west3
+  AR_REPO: contract-mgmt-prod
+
+jobs:
+  build-and-push:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - api
+          - extraction-worker
+          - archive-worker
+          - integrity-cron
+          - weekly-report
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/contract-${{ matrix.target }}:${IMAGE_TAG}"
+          docker build --target "${{ matrix.target }}" -t "$IMAGE" .
+          docker push "$IMAGE"
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            LATEST="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/contract-${{ matrix.target }}:latest"
+            docker tag "$IMAGE" "$LATEST"
+            docker push "$LATEST"
+          fi
+
+  deploy-cloud-run:
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: contract-api-prod
+            image: contract-api
+          - service: contract-extraction-prod
+            image: contract-extraction-worker
+          - service: contract-archive-prod
+            image: contract-archive-worker
+          - service: contract-integrity-prod
+            image: contract-integrity-cron
+          - service: contract-weekly-report-prod
+            image: contract-weekly-report
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Cloud Run service
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/contract-${{ matrix.image }}:${IMAGE_TAG}"
+          gcloud run services update "${{ matrix.service }}" \
+            --project="$PROJECT_ID" \
+            --region="${GCP_REGION}" \
+            --image="$IMAGE"

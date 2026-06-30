@@ -51,14 +51,14 @@ resource "google_cloud_run_v2_service" "archive" {
 
       env {
         name  = "DB_USER"
-        value = var.db_user
+        value = var.archive_db_user
       }
 
       env {
         name = "DB_PASSWORD"
         value_source {
           secret_key_ref {
-            secret  = var.db_password_secret_id
+            secret  = var.archive_db_password_secret_id
             version = "latest"
           }
         }

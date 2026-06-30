@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -179,9 +180,24 @@ func (r *Repository) ConfirmContract(
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	var uploadedBy string
+	err = tx.QueryRowContext(ctx,
+		`SELECT uploaded_by FROM contracts WHERE id = $1 AND status = $2`,
+		contractID, StatusPendingReview,
+	).Scan(&uploadedBy)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+		return fmt.Errorf("load contract for confirm: %w", err)
+	}
+	if strings.EqualFold(uploadedBy, confirmedBy) {
+		return ErrSeparationOfDuties
+	}
+
 	res, err := tx.ExecContext(ctx,
 		`UPDATE contracts SET status = $1, confirmed_by = $2, confirmed_at = $3
-		 WHERE id = $4 AND status = $5`,
+		 WHERE id = $4 AND status = $5 AND LOWER(uploaded_by) <> LOWER($2)`,
 		StatusConfirmed, confirmedBy, now, contractID, StatusPendingReview,
 	)
 	if err != nil {
@@ -418,6 +434,33 @@ func (r *Repository) CountPendingReviewBeyondSLA(ctx context.Context, slaDays in
 	err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(1) FROM contracts WHERE status = $1 AND uploaded_at < $2`,
 		StatusPendingReview, cutoff,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *Repository) CountUploadedSince(ctx context.Context, since time.Time) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(1) FROM contracts WHERE uploaded_at >= $1`,
+		since,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *Repository) CountArchivedSince(ctx context.Context, since time.Time) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(1) FROM archive_records WHERE archived_at >= $1`,
+		since,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *Repository) CountRejectedSince(ctx context.Context, since time.Time) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(1) FROM contracts WHERE status = $1 AND uploaded_at >= $2`,
+		StatusRejected, since,
 	).Scan(&count)
 	return count, err
 }

@@ -4,12 +4,19 @@ project_id = "your-gcp-project-id"
 region     = "europe-west3"
 domain     = "contracts.example.com"
 
-enable_bucket_lock  = true
-enable_iap          = true
-enable_org_policies = true
-db_tier             = "db-g1-small"
+enable_bucket_lock          = true
+enable_iap                  = true
+enable_org_policies         = true
+enable_binary_authorization = true
+enable_cicd                 = true
+db_tier                     = "db-g1-small"
 
 allowed_email_domains = ["example.com"]
+
+# VPN or office egress CIDR for Cloud Armor (required in prod)
+cloud_armor_allowed_ips = [
+  # "203.0.113.0/24",
+]
 
 # iap_oauth_client_id     = ""
 # iap_oauth_client_secret = ""
@@ -34,4 +41,18 @@ auth_admin_emails = [
   # "admin@example.com",
 ]
 
+alert_email_ops   = "grp-contract-ops@example.com"
+alert_email_admin = "grp-contract-admin@example.com"
+alert_email_audit = "grp-contract-auditor@example.com"
+
+email_from = "contract-mgmt@example.com"
+smtp_host  = "smtp.example.com"
+smtp_port  = 587
+smtp_user  = "contract-mgmt@example.com"
+# smtp_password_secret_id = "smtp-password"
+
+github_org  = "your-github-org"
+github_repo = "ContractManagementTool"
+
 # api_image = "europe-west3-docker.pkg.dev/your-project/contract-mgmt-prod/contract-api:latest"
+# weekly_report_image = "europe-west3-docker.pkg.dev/your-project/contract-mgmt-prod/contract-weekly-report:latest"

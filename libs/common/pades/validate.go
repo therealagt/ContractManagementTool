@@ -29,8 +29,7 @@ func Validate(pdf []byte) (*ValidationResult, error) {
 	}
 
 	reader := bytes.NewReader(pdf)
-	opts := verify.DefaultVerifyOptions()
-	opts.AllowUntrustedRoots = true // dev/embedded certs; prod PKI via PADES_TRUSTED_CERTS_PATH later
+	opts := verifyOptions()
 
 	resp, err := verify.VerifyWithOptions(reader, int64(len(pdf)), opts)
 	if err != nil {
@@ -66,6 +65,11 @@ func Validate(pdf []byte) (*ValidationResult, error) {
 		if sig.RevokedCertificate {
 			result.Errors = append(result.Errors, "signing certificate revoked")
 		}
+		return result, nil
+	}
+	if !sig.TrustedIssuer && !opts.AllowUntrustedRoots {
+		result.Valid = false
+		result.Errors = append(result.Errors, "signing certificate chain is not trusted")
 		return result, nil
 	}
 

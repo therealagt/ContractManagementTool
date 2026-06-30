@@ -5,6 +5,19 @@ import (
 	"strings"
 )
 
+// StagingObjectPathFromFullPath returns the staging object key (e.g. staging/<id>.pdf).
+func StagingObjectPathFromFullPath(fullPath string) (string, error) {
+	_, objectPath, err := ParseFullPath(fullPath)
+	if err != nil {
+		return "", err
+	}
+	const prefix = "staging/"
+	if !strings.HasPrefix(objectPath, prefix) {
+		return "", fmt.Errorf("not a staging object path: %s", fullPath)
+	}
+	return objectPath, nil
+}
+
 // ParseFullPath splits gs://bucket/object into bucket and object path.
 func ParseFullPath(fullPath string) (bucket, objectPath string, err error) {
 	const prefix = "gs://"

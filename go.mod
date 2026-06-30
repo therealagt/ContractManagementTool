@@ -11,6 +11,7 @@ require (
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.4
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	google.golang.org/api v0.285.0
 	google.golang.org/genai v1.52.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20260615183401-62b3387ff324

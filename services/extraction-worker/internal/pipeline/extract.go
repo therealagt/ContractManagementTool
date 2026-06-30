@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/therealagt/ContractManagementTool/libs/common/audit"
@@ -51,8 +50,17 @@ func (p *Pipeline) Run(ctx context.Context, msg pubsub.ExtractionRequested) erro
 	if detail.Status != contracts.StatusExtracting {
 		return fmt.Errorf("unexpected contract status %s", detail.Status)
 	}
+	if !detail.GCSStagingPath.Valid || detail.GCSStagingPath.String == "" {
+		return fmt.Errorf("contract has no staging path")
+	}
+	if msg.GCSPath != "" && msg.GCSPath != detail.GCSStagingPath.String {
+		return fmt.Errorf("staging path mismatch")
+	}
 
-	objectPath := objectPathFromGCS(msg.GCSPath, msg.ContractID)
+	objectPath, err := gcs.StagingObjectPathFromFullPath(detail.GCSStagingPath.String)
+	if err != nil {
+		return err
+	}
 	pdf, err := p.loader.Download(ctx, objectPath)
 	if err != nil {
 		p.logFailure(ctx, msg.ContractID, err)
@@ -95,12 +103,4 @@ func (p *Pipeline) logFailure(ctx context.Context, contractID string, err error)
 	_, _ = audit.RecordAuditEvent(ctx, p.db, "extraction-worker", "extraction_failed", &contractID, map[string]any{
 		"error": err.Error(),
 	}, nil)
-}
-
-func objectPathFromGCS(gcsPath, contractID string) string {
-	const marker = "/staging/"
-	if idx := strings.Index(gcsPath, marker); idx >= 0 {
-		return "staging/" + gcsPath[idx+len(marker):]
-	}
-	return gcs.StagingObjectPath(contractID)
 }

@@ -115,6 +115,78 @@ variable "alert_email_ops" {
   default     = ""
 }
 
+variable "alert_email_admin" {
+  type        = string
+  description = "Email for P1 escalation after alert_escalation_hours"
+  default     = ""
+}
+
+variable "alert_email_audit" {
+  type        = string
+  description = "Email for weekly status report"
+  default     = ""
+}
+
+variable "alert_escalation_hours" {
+  type    = number
+  default = 4
+}
+
+variable "weekly_report_schedule" {
+  type    = string
+  default = "0 8 * * 1"
+}
+
+variable "email_from" {
+  type    = string
+  default = "contract-mgmt@example.com"
+}
+
+variable "smtp_host" {
+  type    = string
+  default = ""
+}
+
+variable "smtp_port" {
+  type    = number
+  default = 587
+}
+
+variable "smtp_user" {
+  type    = string
+  default = ""
+}
+
+variable "smtp_password_secret_id" {
+  type    = string
+  default = ""
+}
+
+variable "enable_binary_authorization" {
+  type    = bool
+  default = true
+}
+
+variable "enable_cicd" {
+  type    = bool
+  default = true
+}
+
+variable "github_org" {
+  type    = string
+  default = ""
+}
+
+variable "github_repo" {
+  type    = string
+  default = "ContractManagementTool"
+}
+
+variable "weekly_report_image" {
+  type    = string
+  default = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
 variable "gemini_model" {
   type    = string
   default = "gemini-2.0-flash"

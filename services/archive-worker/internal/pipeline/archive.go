@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/therealagt/ContractManagementTool/libs/common/audit"
@@ -66,7 +65,27 @@ func (p *Pipeline) Run(ctx context.Context, msg pubsub.ArchiveRequested) error {
 		return err
 	}
 
-	stagingPath := objectPathFromGCS(msg.GCSStagingPath, msg.ContractID)
+	if !detail.GCSStagingPath.Valid || detail.GCSStagingPath.String == "" {
+		err := fmt.Errorf("contract has no staging path")
+		p.logFailure(ctx, msg.ContractID, err)
+		return err
+	}
+	if msg.GCSStagingPath != "" && msg.GCSStagingPath != detail.GCSStagingPath.String {
+		err := fmt.Errorf("staging path mismatch")
+		p.logFailure(ctx, msg.ContractID, err)
+		return err
+	}
+	if msg.SHA256 != "" && msg.SHA256 != detail.SHA256 {
+		err := fmt.Errorf("sha256 mismatch in archive request")
+		p.logFailure(ctx, msg.ContractID, err)
+		return err
+	}
+
+	stagingPath, err := gcs.StagingObjectPathFromFullPath(detail.GCSStagingPath.String)
+	if err != nil {
+		p.logFailure(ctx, msg.ContractID, err)
+		return err
+	}
 	pdf, err := p.staging.Download(ctx, stagingPath)
 	if err != nil {
 		p.logFailure(ctx, msg.ContractID, err)
@@ -74,7 +93,8 @@ func (p *Pipeline) Run(ctx context.Context, msg pubsub.ArchiveRequested) error {
 	}
 
 	sum := sha256.Sum256(pdf)
-	if hex.EncodeToString(sum[:]) != msg.SHA256 {
+	actualSHA := hex.EncodeToString(sum[:])
+	if actualSHA != detail.SHA256 {
 		err := fmt.Errorf("sha256 mismatch for contract %s", msg.ContractID)
 		p.logFailure(ctx, msg.ContractID, err)
 		return err
@@ -93,7 +113,7 @@ func (p *Pipeline) Run(ctx context.Context, msg pubsub.ArchiveRequested) error {
 	if err := p.repo.SaveArchiveRecord(ctx, &contracts.ArchiveRecord{
 		ContractID:         msg.ContractID,
 		GCSPath:            gcsPath,
-		SHA256:             msg.SHA256,
+		SHA256:             detail.SHA256,
 		RetentionExpiresAt: retentionExpires,
 		ArchivedAt:         now,
 	}); err != nil {
@@ -107,7 +127,7 @@ func (p *Pipeline) Run(ctx context.Context, msg pubsub.ArchiveRequested) error {
 
 	_, _ = audit.RecordAuditEvent(ctx, p.db, "archive-worker", "archive_completed", &msg.ContractID, map[string]any{
 		"gcs_path":             gcsPath,
-		"sha256":               msg.SHA256,
+		"sha256":               detail.SHA256,
 		"retention_expires_at": retentionExpires,
 	}, nil)
 	return nil
@@ -117,12 +137,4 @@ func (p *Pipeline) logFailure(ctx context.Context, contractID string, err error)
 	_, _ = audit.RecordAuditEvent(ctx, p.db, "archive-worker", "archive_failed", &contractID, map[string]any{
 		"error": err.Error(),
 	}, nil)
-}
-
-func objectPathFromGCS(gcsPath, contractID string) string {
-	const marker = "/staging/"
-	if idx := strings.Index(gcsPath, marker); idx >= 0 {
-		return "staging/" + gcsPath[idx+len(marker):]
-	}
-	return gcs.StagingObjectPath(contractID)
 }

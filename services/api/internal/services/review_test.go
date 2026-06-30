@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,6 +14,25 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+func validNDAMetadata(t *testing.T, overrides map[string]any) json.RawMessage {
+	t.Helper()
+	base := map[string]any{
+		"disclosing_party":            "Party A",
+		"receiving_party":             "Party B",
+		"effective_date":              "2024-01-01",
+		"confidentiality_term_months": 12,
+		"governing_law":               "Germany",
+	}
+	for k, v := range overrides {
+		base[k] = v
+	}
+	raw, err := json.Marshal(base)
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
+	return raw
+}
 
 type stubArchivePublisher struct {
 	last pubsub.ArchiveRequested
@@ -46,7 +66,7 @@ func TestReviewConfirmEnforcesSOD(t *testing.T) {
 	_, err = svc.Confirm(ctx, ConfirmInput{
 		Actor:        "uploader@example.com",
 		ContractID:   c.ID,
-		MetadataJSON: json.RawMessage(`{"disclosing_party":"A"}`),
+		MetadataJSON: validNDAMetadata(t, map[string]any{"disclosing_party": "A"}),
 	})
 	if !IsSODViolation(err) {
 		t.Fatalf("expected SoD violation, got %v", err)
@@ -79,7 +99,7 @@ func TestReviewConfirmPublishesArchive(t *testing.T) {
 	result, err := svc.Confirm(ctx, ConfirmInput{
 		Actor:        "reviewer@example.com",
 		ContractID:   c.ID,
-		MetadataJSON: json.RawMessage(`{"disclosing_party":"B"}`),
+		MetadataJSON: validNDAMetadata(t, map[string]any{"disclosing_party": "B"}),
 	})
 	if err != nil {
 		t.Fatalf("confirm: %v", err)
@@ -94,6 +114,12 @@ func TestReviewConfirmPublishesArchive(t *testing.T) {
 
 func openReviewTestDB(t *testing.T) *sql.DB {
 	t.Helper()
+	schemasDir, err := filepath.Abs("../../../../schemas")
+	if err != nil {
+		t.Fatalf("schemas path: %v", err)
+	}
+	t.Setenv("SCHEMAS_DIR", schemasDir)
+
 	db, err := sql.Open("sqlite", "file:"+t.TempDir()+"/test.db?_pragma=foreign_keys(1)")
 	if err != nil {
 		t.Fatalf("open: %v", err)

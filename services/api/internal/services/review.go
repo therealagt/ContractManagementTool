@@ -11,6 +11,7 @@ import (
 	"github.com/therealagt/ContractManagementTool/libs/common/contracts"
 	"github.com/therealagt/ContractManagementTool/libs/common/metadata"
 	"github.com/therealagt/ContractManagementTool/libs/common/pubsub"
+	"github.com/therealagt/ContractManagementTool/libs/common/schemas"
 	"github.com/therealagt/ContractManagementTool/services/api/internal/auth"
 )
 
@@ -64,6 +65,9 @@ func (s *ReviewService) Confirm(ctx context.Context, in ConfirmInput) (*ConfirmR
 	if !json.Valid(in.MetadataJSON) {
 		return nil, fmt.Errorf("invalid metadata json")
 	}
+	if err := schemas.ValidateMetadata(detail.Type, in.MetadataJSON); err != nil {
+		return nil, err
+	}
 
 	diff, err := metadata.DiffFromDraft(detail.Draft.ExtractedJSON, in.MetadataJSON)
 	if err != nil {
@@ -71,6 +75,9 @@ func (s *ReviewService) Confirm(ctx context.Context, in ConfirmInput) (*ConfirmR
 	}
 
 	if err := s.repo.ConfirmContract(ctx, in.ContractID, in.Actor, in.MetadataJSON, diff); err != nil {
+		if errors.Is(err, contracts.ErrSeparationOfDuties) {
+			return nil, &auth.SODViolation{Action: "confirm contract"}
+		}
 		return nil, err
 	}
 

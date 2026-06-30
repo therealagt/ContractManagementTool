@@ -38,6 +38,42 @@ variable "db_password_secret_id" {
   type = string
 }
 
+variable "ingestion_db_user" {
+  type = string
+}
+
+variable "ingestion_db_password_secret_id" {
+  type = string
+}
+
+variable "archive_db_user" {
+  type = string
+}
+
+variable "archive_db_password_secret_id" {
+  type = string
+}
+
+variable "integrity_db_user" {
+  type = string
+}
+
+variable "integrity_db_password_secret_id" {
+  type = string
+}
+
+variable "report_db_user" {
+  type = string
+}
+
+variable "report_db_password_secret_id" {
+  type = string
+}
+
+variable "pades_allow_untrusted_roots" {
+  type = bool
+}
+
 variable "staging_bucket_name" {
   type = string
 }
@@ -138,4 +174,54 @@ variable "push_invoker_member" {
 variable "gemini_model" {
   type    = string
   default = "gemini-2.0-flash"
+}
+
+variable "weekly_report_image" {
+  type    = string
+  default = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "report_service_account_email" {
+  type    = string
+  default = ""
+}
+
+variable "alert_email_ops" {
+  type    = string
+  default = ""
+}
+
+variable "alert_email_audit" {
+  type    = string
+  default = ""
+}
+
+variable "email_from" {
+  type    = string
+  default = ""
+}
+
+variable "smtp_host" {
+  type    = string
+  default = ""
+}
+
+variable "smtp_port" {
+  type    = number
+  default = 587
+}
+
+variable "smtp_user" {
+  type    = string
+  default = ""
+}
+
+variable "smtp_password_secret_id" {
+  type    = string
+  default = ""
+}
+
+variable "weekly_report_schedule" {
+  type    = string
+  default = "0 8 * * 1"
 }

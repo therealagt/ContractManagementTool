@@ -56,3 +56,9 @@ variable "api_service_account_email" {
   default     = ""
   description = "API workload SA granted KMS use (CMEK client-side access if needed)"
 }
+
+variable "enable_binary_authorization" {
+  type        = bool
+  default     = false
+  description = "Restrict Cloud Run deployments to images from project Artifact Registry"
+}

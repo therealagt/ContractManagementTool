@@ -22,6 +22,9 @@ locals {
     "pubsub.googleapis.com",
     "cloudscheduler.googleapis.com",
     "monitoring.googleapis.com",
+    "binaryauthorization.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
   ]
 }
 
@@ -51,6 +54,7 @@ module "compliance" {
   environment                 = var.environment
   enable_org_policies         = var.enable_org_policies
   enable_vpc_service_controls = var.enable_vpc_service_controls
+  enable_binary_authorization = var.enable_binary_authorization
   vpc_sc_access_policy_id     = var.vpc_sc_access_policy_id
   labels                      = local.labels
   api_service_account_email   = module.iam.service_account_emails["api"]
@@ -93,15 +97,18 @@ module "storage" {
 module "cloudsql" {
   source = "../cloudsql"
 
-  project_id                    = var.project_id
-  region                        = var.region
-  environment                   = var.environment
-  network_id                    = module.networking.network_id
-  kms_key_id                    = module.compliance.kms_key_id
-  api_service_account_email     = module.iam.service_account_emails["api"]
+  project_id                      = var.project_id
+  region                          = var.region
+  environment                     = var.environment
+  network_id                      = module.networking.network_id
+  kms_key_id                      = module.compliance.kms_key_id
+  api_service_account_email       = module.iam.service_account_emails["api"]
   ingestion_service_account_email = module.iam.service_account_emails["ingestion"]
-  db_tier                       = var.db_tier
-  deletion_protection           = var.environment == "prod"
+  archive_service_account_email   = module.iam.service_account_emails["archive"]
+  integrity_service_account_email = module.iam.service_account_emails["integrity"]
+  report_service_account_email    = module.iam.service_account_emails["report"]
+  db_tier                         = var.db_tier
+  deletion_protection             = var.environment == "prod"
 
   depends_on = [module.networking, module.compliance, module.iam]
 }
@@ -142,14 +149,33 @@ module "cloudrun" {
   extraction_worker_image         = var.extraction_worker_image
   archive_worker_image            = var.archive_worker_image
   integrity_cron_image            = var.integrity_cron_image
+  weekly_report_image             = var.weekly_report_image
+  report_service_account_email    = module.iam.service_account_emails["report"]
   gemini_model                    = var.gemini_model
   retention_years                 = var.retention_years
   review_sla_days                 = var.review_sla_days
+  alert_email_ops                 = var.alert_email_ops
+  alert_email_audit               = var.alert_email_audit
+  email_from                      = var.email_from
+  smtp_host                       = var.smtp_host
+  smtp_port                       = var.smtp_port
+  smtp_user                       = var.smtp_user
+  smtp_password_secret_id         = var.smtp_password_secret_id
+  weekly_report_schedule          = var.weekly_report_schedule
   bigquery_dataset_id             = module.bigquery.dataset_id
   cloud_sql_connection_name       = module.cloudsql.instance_connection_name
   db_name                         = module.cloudsql.database_name
   db_user                         = module.cloudsql.database_user
   db_password_secret_id           = module.cloudsql.db_password_secret_id
+  ingestion_db_user               = module.cloudsql.ingestion_database_user
+  ingestion_db_password_secret_id = module.cloudsql.ingestion_db_password_secret_id
+  archive_db_user                 = module.cloudsql.archive_database_user
+  archive_db_password_secret_id   = module.cloudsql.archive_db_password_secret_id
+  integrity_db_user               = module.cloudsql.integrity_database_user
+  integrity_db_password_secret_id = module.cloudsql.integrity_db_password_secret_id
+  report_db_user                  = module.cloudsql.report_database_user
+  report_db_password_secret_id    = module.cloudsql.report_db_password_secret_id
+  pades_allow_untrusted_roots     = var.environment != "prod"
   staging_bucket_name             = module.storage.staging_bucket_name
   archive_bucket_name             = module.storage.archive_bucket_name
   iap_audience                    = var.enable_iap ? var.iap_oauth_client_id : ""
@@ -179,11 +205,27 @@ module "pubsub" {
 module "monitoring" {
   source = "../monitoring"
 
-  project_id      = var.project_id
-  environment     = var.environment
-  alert_email_ops = var.alert_email_ops
+  project_id             = var.project_id
+  environment            = var.environment
+  alert_email_ops        = var.alert_email_ops
+  alert_email_admin      = var.alert_email_admin
+  alert_escalation_hours = var.alert_escalation_hours
 
   depends_on = [google_project_service.apis]
+}
+
+module "cicd" {
+  count  = var.enable_cicd ? 1 : 0
+  source = "../cicd"
+
+  project_id             = var.project_id
+  region                 = var.region
+  environment            = var.environment
+  github_org             = var.github_org
+  github_repo            = var.github_repo
+  artifact_registry_repo = "contract-mgmt-${var.environment}"
+
+  depends_on = [google_project_service.apis, module.artifactregistry]
 }
 
 resource "google_pubsub_topic_iam_member" "api_extraction_publisher" {
@@ -330,5 +372,26 @@ check "dev_without_iap_requires_armor" {
   assert {
     condition     = var.enable_iap || var.environment == "prod" || length(var.cloud_armor_allowed_ips) > 0
     error_message = "When IAP is disabled outside prod, set cloud_armor_allowed_ips to restrict LB access."
+  }
+}
+
+check "prod_cloud_armor_required" {
+  assert {
+    condition     = var.environment != "prod" || length(var.cloud_armor_allowed_ips) > 0
+    error_message = "Configure cloud_armor_allowed_ips in prod (VPN/office CIDR)."
+  }
+}
+
+check "prod_binary_authorization" {
+  assert {
+    condition     = var.environment != "prod" || var.enable_binary_authorization
+    error_message = "Binary Authorization must be enabled in prod."
+  }
+}
+
+check "cicd_requires_github_org" {
+  assert {
+    condition     = !var.enable_cicd || var.github_org != ""
+    error_message = "Set github_org when enable_cicd is true."
   }
 }

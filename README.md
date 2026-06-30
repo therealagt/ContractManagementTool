@@ -10,6 +10,7 @@ Compliance-focused archive for signed **NDAs** and **AVVs** (data processing agr
 | `services/extraction-worker` | AI metadata extraction (Gemini) via Pub/Sub |
 | `services/archive-worker` | Archival to WORM bucket via Pub/Sub |
 | `services/integrity-cron` | Periodic integrity and audit-chain checks |
+| `services/weekly-report` | Weekly operational status email (Scheduler) |
 | `libs/common` | Shared domain logic (audit, GCS, PAdES, contracts) |
 | `terraform/` | GCP infrastructure (modular) |
 | `schemas/` | JSON schemas for NDA/AVV extraction |
@@ -73,6 +74,7 @@ Without GCP environment variables, the API uses local SQLite (`.local-data/`) an
 go run ./services/extraction-worker/cmd/worker
 go run ./services/archive-worker/cmd/worker
 go run ./services/integrity-cron/cmd/worker
+go run ./services/weekly-report/cmd/worker
 ```
 
 ## Compliance principles

@@ -36,3 +36,11 @@ output "api_service_account" {
 output "extraction_topic" {
   value = module.pubsub.extraction_topic
 }
+
+output "cicd_workload_identity_provider" {
+  value = var.enable_cicd ? module.cicd[0].workload_identity_provider : ""
+}
+
+output "cicd_deploy_service_account" {
+  value = var.enable_cicd ? module.cicd[0].deploy_service_account_email : ""
+}

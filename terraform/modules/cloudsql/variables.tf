@@ -23,8 +23,19 @@ variable "api_service_account_email" {
 }
 
 variable "ingestion_service_account_email" {
-  type    = string
-  default = ""
+  type = string
+}
+
+variable "archive_service_account_email" {
+  type = string
+}
+
+variable "integrity_service_account_email" {
+  type = string
+}
+
+variable "report_service_account_email" {
+  type = string
 }
 
 variable "db_tier" {

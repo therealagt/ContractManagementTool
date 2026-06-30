@@ -31,8 +31,9 @@ func TestPubSubPushDecoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create contract: %v", err)
 	}
+	stagingPath := "gs://bucket/staging/" + contract.ID + ".pdf"
 	if err := contracts.NewRepository(db).SetGCSPathAndStatus(
-		context.Background(), contract.ID, "gs://b/staging/x.pdf", contracts.StatusExtracting,
+		context.Background(), contract.ID, stagingPath, contracts.StatusExtracting,
 	); err != nil {
 		t.Fatalf("set path: %v", err)
 	}
@@ -40,7 +41,7 @@ func TestPubSubPushDecoding(t *testing.T) {
 	msg := pubsub.ExtractionRequested{
 		ContractID:    contract.ID,
 		Type:          "nda",
-		GCSPath:       "gs://bucket/staging/" + contract.ID + ".pdf",
+		GCSPath:       stagingPath,
 		SchemaVersion: "nda/v1",
 	}
 	payload, _ := json.Marshal(msg)
